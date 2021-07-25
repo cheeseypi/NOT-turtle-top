@@ -1,0 +1,71 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class TwinStickPlayerController : MonoBehaviour
+{
+    public float movementSpeed = .06f;
+    public float brakeForce = .1f;
+    public float centerPull = 1.7f;
+    public float energyLossCoefficient = .88f;
+    public float maxVelocity = 20f;
+
+    private Rigidbody2D _rigidBody;
+    private BoxCollider2D _boxCollider;
+    private Vector2 _lastVelocity;
+
+    private bool _braking = false;
+    private Vector2 motion = new Vector2(0, 0);
+    // Start is called before the first frame update
+    void Start()
+    {
+        _rigidBody = GetComponent<Rigidbody2D>();
+        _boxCollider = GetComponent<BoxCollider2D>();
+
+        _rigidBody.velocity = new Vector2(6, 6);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        var toCenter = new Vector2(-_rigidBody.position.x, -_rigidBody.position.y);
+        _rigidBody.velocity += toCenter / 45 * centerPull;
+
+        _rigidBody.velocity += motion * movementSpeed;
+        if(_rigidBody.velocity.magnitude > maxVelocity)
+        {
+            _rigidBody.velocity = _rigidBody.velocity.normalized * maxVelocity;
+        }
+
+        _lastVelocity = _rigidBody.velocity;
+    }
+
+    public void Move(InputAction.CallbackContext context)
+    {
+        motion = (Vector2) context.action.ReadValueAsObject();
+    }
+    public void Brake(InputAction.CallbackContext context)
+    {
+        _braking = context.performed;
+        if (_rigidBody.velocity.magnitude > 1)
+        {
+            _rigidBody.velocity -= _rigidBody.velocity.normalized * brakeForce;
+        }
+        else
+        {
+            _rigidBody.velocity -= _rigidBody.velocity * brakeForce;
+        }
+    }
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Wall"))
+        {
+            Vector2 normal = collision.contacts[0].normal;
+            var dir = Vector2.Reflect(_lastVelocity, normal).normalized;
+
+            //_rigidBody.velocity = Vector2.Reflect(_rigidBody.velocity, normal);
+            _rigidBody.velocity = dir * (_lastVelocity.magnitude * energyLossCoefficient);
+        }
+    }
+}
